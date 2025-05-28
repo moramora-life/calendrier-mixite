@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -131,7 +130,7 @@
       if (!format) return "";
       const f = format.toLowerCase();
       if (f.includes("visi")) return "💻";
-      if (f.includes("présen")) return "🏢";
+      if (f.includes("présen")) return "👥";
       if (f.includes("hybride")) return "🔁";
       return "";
     }
@@ -142,41 +141,48 @@
         const data = csvToArray(csv);
         const headers = data[0];
         const rows = data.slice(1);
-
-        const gallery = document.getElementById('galleryView');
-        const list = document.getElementById('listView');
         const now = new Date();
+
+        const events = [];
 
         rows.forEach(row => {
           const rowObj = {};
           headers.forEach((h, i) => rowObj[h.trim()] = row[i]?.trim());
 
-          if (!["oui", "Oui"].includes((rowObj["Validé ?"] || "").trim())) return;
+          if ((rowObj["Validé ?"] || "").toLowerCase() !== "oui") return;
 
-          const dateEvt = new Date(rowObj["📆 Date de l’événement"]);
-          
+          const dateRaw = rowObj["📆 Date de l’événement"];
+          const dateEvt = new Date(dateRaw);
+
           if (isNaN(dateEvt.getTime()) || dateEvt < now) return;
 
+          rowObj._parsedDate = dateEvt;
+          events.push(rowObj);
+        });
+
+        events.sort((a, b) => a._parsedDate - b._parsedDate);
+
+        const gallery = document.getElementById('galleryView');
+        const list = document.getElementById('listView');
+
+        events.forEach(rowObj => {
           const image = rowObj["🖼️ Visuel (affiche ou image de l’événement)"];
-
-          let imageUrl = image;
-          if (image && image.includes("drive.google.com")) {
-            const match = image.match(/[-\w]{25,}/);
-            if (match) {
-              imageUrl = `https://drive.google.com/uc?export=view&id=${match[0]}`;
-            }
-          }
-
           const title = rowObj["📝 Titre de l’événement"];
           const heure = rowObj["🕐 Heure de l’événement"];
           const orga = rowObj["Nom de l'association"];
           const desc = rowObj["📄 Description courte de l’événement"];
           const lieu = rowObj["📍 Adresse de l’événement"];
           const lien = rowObj["Lien vers la page d'inscription"];
-          
+          const dateAffichee = rowObj["Date formatée"];
           const format = rowObj["Format"];
           const lieuAffiche = (format && format.toLowerCase() === "hybride") ? `${lieu} + visio` : lieu;
           const formatIcon = getFormatIcon(format);
+
+          let imageUrl = image;
+          if (image && image.includes("drive.google.com")) {
+            const match = image.match(/[-\w]{25,}/);
+            if (match) imageUrl = `https://drive.google.com/uc?export=view&id=${match[0]}`;
+          }
 
           const html = `
             <div class="card">
@@ -185,7 +191,7 @@
                 <h3>${title} <span class="format-icon">${formatIcon}</span></h3>
                 <p><strong>📅</strong> ${dateAffichee} – ${heure}</p>
                 <p><strong>📍</strong> ${lieuAffiche}</p>
-                <p><strong>👥</strong> ${orga}</p>
+                <p><strong>🏤</strong> ${orga}</p>
                 <p>${desc}</p>
                 <a href="${lien}" target="_blank">En savoir +</a>
               </div>
