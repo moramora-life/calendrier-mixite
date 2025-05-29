@@ -129,11 +129,6 @@
       return new Date(year, month - 1, day);
     }
 
-    function extractDriveImage(url) {
-      const match = url?.match(/[-\w]{25,}/);
-      return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : "";
-    }
-
     function getFormatIcon(format) {
       if (!format) return "";
       const f = format.toLowerCase();
@@ -168,7 +163,7 @@
         events.sort((a, b) => a.eventDate - b.eventDate);
 
         events.forEach(e => {
-          const imageUrl = extractDriveImage(e["Visuel"]);
+          const imageUrl = e["Visuel"];
           const title = e["📝 Titre de l’événement"];
           const heure = e["🕐 Heure"];
           const orga = e["🎓 Association organisatrice"];
