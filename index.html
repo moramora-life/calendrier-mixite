@@ -133,6 +133,12 @@
       return "";
     }
 
+    function extractDriveImage(link) {
+      if (!link) return "";
+      const match = link.match(/[-\w]{25,}/);
+      return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : "";
+    }
+
     fetch(sheetUrl)
       .then(res => res.text())
       .then(csv => {
@@ -156,15 +162,14 @@
         events.sort((a, b) => new Date(a["📆 Date de l’événement"]) - new Date(b["📆 Date de l’événement"]));
 
         events.forEach(e => {
-          const image = e["🖼️ Visuel de l'événement (format paysage)"];
-          const imageUrl = image?.match(/[-\w]{25,}/) ? `https://drive.google.com/uc?export=view&id=${image.match(/[-\w]{25,}/)[0]}` : "";
+          const imageUrl = extractDriveImage(e["🖼️ Visuel de l'événement (format paysage)"]);
           const title = e["📝 Titre de l’événement"];
           const heure = e["🕐 Heure"];
           const orga = e["🎓 Association organisatrice"];
           const desc = e["📄 Description courte de l’événement"];
           const lieu = e["📍 Adresse de l’événement"];
           const lien = e["📢 Lien vers la page d'inscription"];
-          const dateAffichee = e["Date formatée"];
+          const dateAffichee = e["Date finale"];
           const format = e["⚙️Format"];
           const lieuAffiche = (format && format.toLowerCase() === "hybride") ? `${lieu} + visio` : lieu;
           const formatIcon = getFormatIcon(format);
