@@ -1,6 +1,103 @@
-<!DOCTYPE html>
-<html>
-  <body>
-    <img src="https://drive.google.com/uc?export=view&id=1evU_O9pCM0WHV7k4YgHlL2jNvcou-Xtq" alt="Test image">
-  </body>
-</html>
+<script>
+  const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSlXIsjALEYwBr5Beuw4L7cxsgLrlWDUMifLFd7Gy-lgtOV_t9hzTaOsOoK87hGigHJcr6Y7vlxY13a/pub?gid=153886035&single=true&output=csv";
+
+  function toggleView(view) {
+    document.getElementById('galleryView').style.display = view === 'gallery' ? 'flex' : 'none';
+    document.getElementById('listView').style.display = view === 'list' ? 'flex' : 'none';
+    document.getElementById('btnGallery').classList.toggle('active', view === 'gallery');
+    document.getElementById('btnList').classList.toggle('active', view === 'list');
+  }
+
+  function csvToArray(str, delimiter = ",") {
+    const rows = str.trim().split("\n");
+    return rows.map(row => {
+      const values = [];
+      let inQuotes = false, value = "";
+      for (let char of row) {
+        if (char === '"') inQuotes = !inQuotes;
+        else if (char === delimiter && !inQuotes) {
+          values.push(value.trim());
+          value = "";
+        } else value += char;
+      }
+      values.push(value.trim());
+      return values;
+    });
+  }
+
+  function parseFrenchDate(str) {
+    const [day, month, year] = str.split("/").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  function getFormatIcon(format) {
+    if (!format) return "";
+    const f = format.toLowerCase();
+    if (f.includes("visi")) return "💻";
+    if (f.includes("présen")) return "🏢";
+    if (f.includes("hybride")) return "🔁";
+    return "";
+  }
+
+  fetch(sheetUrl)
+    .then(res => res.text())
+    .then(csv => {
+      const data = csvToArray(csv);
+      const headers = data[0];
+      const rows = data.slice(1);
+      const now = new Date();
+      const gallery = document.getElementById('galleryView');
+      const list = document.getElementById('listView');
+
+      const events = rows.map(row => {
+        const e = {};
+        headers.forEach((h, i) => e[h.trim()] = row[i]?.trim());
+
+        const published = (e["Publié ?"] || "").toLowerCase();
+        const rawDate = e["📆 Date de l’événement"];
+        const eventDate = rawDate ? parseFrenchDate(rawDate) : null;
+        const isValid = published === "oui" && eventDate && !isNaN(eventDate.getTime()) && eventDate >= now;
+
+        return isValid ? { ...e, eventDate } : null;
+      }).filter(Boolean);
+
+      events.sort((a, b) => a.eventDate - b.eventDate);
+
+      events.forEach(e => {
+        let imageUrl = e["Visuel"];
+        if (imageUrl && imageUrl.includes("drive.google.com")) {
+          const idMatch = imageUrl.match(/[-\w]{25,}/);
+          if (idMatch) {
+            const id = idMatch[0];
+            imageUrl = `https://images.weserv.nl/?url=drive.google.com/uc?id=${id}`;
+          }
+        }
+
+        const title = e["📝 Titre de l’événement"];
+        const heure = e["🕐 Heure"];
+        const orga = e["🎓 Association organisatrice"];
+        const desc = e["📄 Description courte de l’événement"];
+        const lieu = e["📍 Adresse de l’événement"];
+        const lien = e["📢 Lien vers la page d'inscription"];
+        const dateAffichee = e["Date finale"];
+        const format = e["⚙️Format"];
+        const lieuAffiche = (format && format.toLowerCase() === "hybride") ? `${lieu} + visio` : lieu;
+        const formatIcon = getFormatIcon(format);
+
+        const html = `
+          <div class="card">
+            <img src="${imageUrl}" alt="Visuel de l’événement">
+            <div class="card-content">
+              <h3>${title} <span class="format-icon">${formatIcon}</span></h3>
+              <p><strong>📅</strong> ${dateAffichee} – ${heure}</p>
+              <p><strong>📍</strong> ${lieuAffiche}</p>
+              <p><strong>👥</strong> ${orga}</p>
+              <p>${desc}</p>
+              <a href="${lien}" target="_blank">En savoir +</a>
+            </div>
+          </div>`;
+        gallery.innerHTML += html;
+        list.innerHTML += html;
+      });
+    });
+</script>
