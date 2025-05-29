@@ -164,6 +164,7 @@
 
         events.forEach(e => {
           const imageUrl = e["Visuel"];
+          console.log("Image URL:", imageUrl); // pour debug
           const title = e["📝 Titre de l’événement"];
           const heure = e["🕐 Heure"];
           const orga = e["🎓 Association organisatrice"];
@@ -177,7 +178,7 @@
 
           const html = `
             <div class="card">
-              <img src="${imageUrl}" alt="Visuel de l’événement">
+              <img src="${imageUrl}" alt="Visuel de l’événement" onerror="this.src='https://via.placeholder.com/400x225?text=Image+indisponible';">
               <div class="card-content">
                 <h3>${title} <span class="format-icon">${formatIcon}</span></h3>
                 <p><strong>📅</strong> ${dateAffichee} – ${heure}</p>
