@@ -124,12 +124,6 @@
       });
     }
 
-    function extractDriveImage(url) {
-      if (!url) return "";
-      const match = url.match(/[-\w]{25,}/);
-      return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : "";
-    }
-
     function getFormatIcon(format) {
       if (!format) return "";
       const f = format.toLowerCase();
@@ -162,7 +156,10 @@
         events.sort((a, b) => new Date(a["📆 Date de l’événement"]) - new Date(b["📆 Date de l’événement"]));
 
         events.forEach(e => {
-          const imageUrl = extractDriveImage(e["🖼️ Visuel de l'événement (format paysage)"]);
+          const image = e["🖼️ Visuel de l'événement (format paysage)"];
+          const imageId = image?.includes("id=") ? image.split("id=")[1] : (image?.match(/[-\w]{25,}/) || [])[0];
+          const imageUrl = imageId ? `https://drive.google.com/uc?export=view&id=${imageId}` : "";
+
           const title = e["📝 Titre de l’événement"];
           const heure = e["🕐 Heure"];
           const orga = e["🎓 Association organisatrice"];
