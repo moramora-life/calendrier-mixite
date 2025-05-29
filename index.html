@@ -148,29 +148,26 @@
         const gallery = document.getElementById('galleryView');
         const list = document.getElementById('listView');
 
-        const events = rows.map(row => {
-          const obj = {};
-          headers.forEach((h, i) => obj[h.trim()] = row[i]?.trim());
-          return obj;
-        }).filter(e => {
+        rows.forEach(row => {
+          const e = {};
+          headers.forEach((h, i) => e[h.trim()] = row[i]?.trim());
+
           const published = (e["Publié ?"] || "").toLowerCase();
           const isValid = published === "oui";
-          const [year, month, day] = (e["📆 Date de l’événement"] || "").split("-").map(n => parseInt(n));
-          const date = new Date(year, month - 1, day);
-          return isValid && !isNaN(date.getTime()) && date >= now;
-        });
 
-        events.sort((a, b) => new Date(a["📆 Date de l’événement"]) - new Date(b["📆 Date de l’événement"]));
+          const rawDate = e["📆 Date de l’événement"];
+          const eventDate = rawDate ? new Date(rawDate) : null;
+          const isFuture = eventDate && !isNaN(eventDate) && eventDate >= now;
 
-        events.forEach(e => {
+          if (!isValid || !isFuture) return;
+
           const imageUrl = extractDriveImage(e["🖼️ Visuel de l'événement (format paysage)"]);
           const title = e["📝 Titre de l’événement"];
           const heure = e["🕐 Heure"];
           const orga = e["🎓 Association organisatrice"];
           const desc = e["📄 Description courte de l’événement"];
           const lieu = e["📍 Adresse de l’événement"];
-          const lienBrut = e["📢 Lien vers la page d'inscription"];
-          const lien = lienBrut.startsWith("http") ? lienBrut : "https://" + lienBrut;
+          const lien = e["📢 Lien vers la page d'inscription"];
           const dateAffichee = e["Date finale"];
           const format = e["⚙️Format"];
           const lieuAffiche = (format && format.toLowerCase() === "hybride") ? `${lieu} + visio` : lieu;
