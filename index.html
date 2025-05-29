@@ -168,7 +168,7 @@
         events.sort((a, b) => a.eventDate - b.eventDate);
 
         events.forEach(e => {
-          const imageUrl = extractDriveImage(e["🖼️ Visuel de l'événement (format paysage)"]);
+          const imageUrl = extractDriveImage(e["Visuel"]);
           const title = e["📝 Titre de l’événement"];
           const heure = e["🕐 Heure"];
           const orga = e["🎓 Association organisatrice"];
