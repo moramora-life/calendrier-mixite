@@ -139,12 +139,10 @@
         const data = csvToArray(csv);
         const headers = data[0];
         const rows = data.slice(1);
-
         const now = new Date();
         const gallery = document.getElementById('galleryView');
         const list = document.getElementById('listView');
 
-        // Transformer les lignes en objets
         const events = rows.map(row => {
           const obj = {};
           headers.forEach((h, i) => obj[h.trim()] = row[i]?.trim());
@@ -155,23 +153,19 @@
           return valid && !isNaN(date.getTime()) && date >= now;
         });
 
-        // Trier par date croissante
         events.sort((a, b) => new Date(a["📆 Date de l’événement"]) - new Date(b["📆 Date de l’événement"]));
 
-        // Affichage
-        events.forEach(rowObj => {
-          const image = rowObj["🖼️ Visuel (affiche ou image de l’événement)"];
-          const match = image?.match(/[-\w]{25,}/);
-          const imageUrl = match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : image;
-
-          const title = rowObj["📝 Titre de l’événement"];
-          const heure = rowObj["🕐 Heure de l’événement"];
-          const orga = rowObj["Nom de l'association"];
-          const desc = rowObj["📄 Description courte de l’événement"];
-          const lieu = rowObj["📍 Adresse de l’événement"];
-          const lien = rowObj["Lien vers la page d'inscription"];
-          const dateAffichee = rowObj["Date formatée"];
-          const format = rowObj["Format"];
+        events.forEach(e => {
+          const image = e["🖼️ Visuel de l'événement (format paysage)"];
+          const imageUrl = image?.match(/[-\w]{25,}/) ? `https://drive.google.com/uc?export=view&id=${image.match(/[-\w]{25,}/)[0]}` : "";
+          const title = e["📝 Titre de l’événement"];
+          const heure = e["🕐 Heure"];
+          const orga = e["🎓 Association organisatrice"];
+          const desc = e["📄 Description courte de l’événement"];
+          const lieu = e["📍 Adresse de l’événement"];
+          const lien = e["📢 Lien vers la page d'inscription"];
+          const dateAffichee = e["Date formatée"];
+          const format = e["⚙️Format"];
           const lieuAffiche = (format && format.toLowerCase() === "hybride") ? `${lieu} + visio` : lieu;
           const formatIcon = getFormatIcon(format);
 
@@ -187,7 +181,6 @@
                 <a href="${lien}" target="_blank">En savoir +</a>
               </div>
             </div>`;
-
           gallery.innerHTML += html;
           list.innerHTML += html;
         });
