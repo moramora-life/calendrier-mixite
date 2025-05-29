@@ -98,7 +98,7 @@
   <div id="listView" class="container list-view" style="display: none;"></div>
 
   <script>
-    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSlXIsjALEYwBr5Beuw4L7cxsgLrlWDUMifLFd7Gy-lgtOV_t9hzTaOsOoK87hGigHJcr6Y7vlxY13a/pub?gid=153886035&single=true&output=csv";
+    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSlXIsjALEYwBr5Beuw4L7cxsgLrlWDUMifLFd7Gy-lgtOV_t9hzTaOsOoK87hGigHJcr6Y7vlxY13a/pub?gid=735786497&single=true&output=csv";
 
     function toggleView(view) {
       document.getElementById('galleryView').style.display = view === 'gallery' ? 'flex' : 'none';
@@ -112,20 +112,12 @@
       return rows.map(row => {
         const values = [];
         let inQuotes = false, value = "";
-        for (let i = 0; i < row.length; i++) {
-          const char = row[i];
-          const nextChar = row[i + 1];
-          if (char === '"' && inQuotes && nextChar === '"') {
-            value += '"';
-            i++;
-          } else if (char === '"') {
-            inQuotes = !inQuotes;
-          } else if (char === delimiter && !inQuotes) {
+        for (let char of row) {
+          if (char === '"') inQuotes = !inQuotes;
+          else if (char === delimiter && !inQuotes) {
             values.push(value.trim());
             value = "";
-          } else {
-            value += char;
-          }
+          } else value += char;
         }
         values.push(value.trim());
         return values;
@@ -141,9 +133,9 @@
       return "";
     }
 
-    function extractDriveId(link) {
-      const match = link.match(/[-\w]{25,}/);
-      return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : "";
+    function extractDriveImage(url) {
+      const match = url?.match(/[-\w]{25,}/);
+      return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : url;
     }
 
     fetch(sheetUrl)
@@ -161,29 +153,29 @@
           headers.forEach((h, i) => obj[h.trim()] = row[i]?.trim());
           return obj;
         }).filter(e => {
-          const published = (e["Publié ?"] || "").trim().toLowerCase() === "oui";
+          const isValid = (e["Publié ?"] || "").toLowerCase() === "oui";
           const date = new Date(e["📆 Date de l’événement"]);
-          return published && !isNaN(date.getTime()) && date >= now;
+          return isValid && !isNaN(date.getTime()) && date >= now;
         });
 
         events.sort((a, b) => new Date(a["📆 Date de l’événement"]) - new Date(b["📆 Date de l’événement"]));
 
         events.forEach(e => {
-          const imageUrl = extractDriveId(e["🖼️ Visuel de l'événement (format paysage)"]);
+          const image = extractDriveImage(e["🖼️ Visuel (affiche ou image de l’événement)"]);
           const title = e["📝 Titre de l’événement"];
-          const heure = e["🕐 Heure"];
-          const orga = e["🎓 Association organisatrice"];
+          const heure = e["🕐 Heure de l’événement"];
+          const orga = e["Nom de l'association"];
           const desc = e["📄 Description courte de l’événement"];
           const lieu = e["📍 Adresse de l’événement"];
           const lien = e["📢 Lien vers la page d'inscription"];
-          const dateAffichee = e["Date finale"];
+          const dateAffichee = e["Date formatée"];
           const format = e["⚙️Format"];
           const lieuAffiche = (format && format.toLowerCase() === "hybride") ? `${lieu} + visio` : lieu;
           const formatIcon = getFormatIcon(format);
 
           const html = `
             <div class="card">
-              <img src="${imageUrl}" alt="Visuel de l’événement">
+              <img src="${image}" alt="Visuel de l’événement">
               <div class="card-content">
                 <h3>${title} <span class="format-icon">${formatIcon}</span></h3>
                 <p><strong>📅</strong> ${dateAffichee} – ${heure}</p>
@@ -193,6 +185,7 @@
                 <a href="${lien}" target="_blank">En savoir +</a>
               </div>
             </div>`;
+
           gallery.innerHTML += html;
           list.innerHTML += html;
         });
