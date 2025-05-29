@@ -124,6 +124,12 @@
       });
     }
 
+    function extractDriveImage(url) {
+      if (!url) return "";
+      const match = url.match(/[-\w]{25,}/);
+      return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : "";
+    }
+
     function getFormatIcon(format) {
       if (!format) return "";
       const f = format.toLowerCase();
@@ -131,12 +137,6 @@
       if (f.includes("présen")) return "🏢";
       if (f.includes("hybride")) return "🔁";
       return "";
-    }
-
-    function extractDriveImage(link) {
-      if (!link) return "";
-      const match = link.match(/[-\w]{25,}/);
-      return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : "";
     }
 
     fetch(sheetUrl)
