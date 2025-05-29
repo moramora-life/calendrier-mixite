@@ -124,6 +124,11 @@
       });
     }
 
+    function parseFrenchDate(str) {
+      const [day, month, year] = str.split("/").map(Number);
+      return new Date(year, month - 1, day);
+    }
+
     function extractDriveImage(url) {
       const match = url?.match(/[-\w]{25,}/);
       return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : "";
@@ -148,19 +153,21 @@
         const gallery = document.getElementById('galleryView');
         const list = document.getElementById('listView');
 
-        rows.forEach(row => {
+        const events = rows.map(row => {
           const e = {};
           headers.forEach((h, i) => e[h.trim()] = row[i]?.trim());
 
           const published = (e["Publié ?"] || "").toLowerCase();
-          const isValid = published === "oui";
-
           const rawDate = e["📆 Date de l’événement"];
-          const eventDate = rawDate ? new Date(rawDate) : null;
-          const isFuture = eventDate && !isNaN(eventDate) && eventDate >= now;
+          const eventDate = rawDate ? parseFrenchDate(rawDate) : null;
+          const isValid = published === "oui" && eventDate && !isNaN(eventDate.getTime()) && eventDate >= now;
 
-          if (!isValid || !isFuture) return;
+          return isValid ? { ...e, eventDate } : null;
+        }).filter(Boolean);
 
+        events.sort((a, b) => a.eventDate - b.eventDate);
+
+        events.forEach(e => {
           const imageUrl = extractDriveImage(e["🖼️ Visuel de l'événement (format paysage)"]);
           const title = e["📝 Titre de l’événement"];
           const heure = e["🕐 Heure"];
