@@ -150,7 +150,7 @@
           headers.forEach((h, i) => obj[h.trim()] = row[i]?.trim());
           return obj;
         }).filter(e => {
-          const valid = (e["Validé ?"] || "").toLowerCase() === "oui";
+          const valid = (e["Publié ?"] || "").toLowerCase() === "oui";
           const date = new Date(e["📆 Date de l’événement"]);
           return valid && !isNaN(date.getTime()) && date >= now;
         });
