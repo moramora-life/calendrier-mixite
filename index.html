@@ -1,103 +1,196 @@
-<script>
-  const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSlXIsjALEYwBr5Beuw4L7cxsgLrlWDUMifLFd7Gy-lgtOV_t9hzTaOsOoK87hGigHJcr6Y7vlxY13a/pub?gid=153886035&single=true&output=csv";
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calendrier événements mixité</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; margin: 0; background: #fff; color: #333; }
+    header { padding: 1rem; text-align: center; background-color: #8e294f; color: white; font-size: 1.5rem; }
+    .toggle-buttons { display: flex; justify-content: center; gap: 1rem; margin: 1rem 0; flex-wrap: wrap; }
+    .toggle-buttons button {
+      padding: 0.5rem 1rem;
+      border: none;
+      background-color: #eee;
+      color: #333;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .toggle-buttons button.active {
+      background-color: #8e294f;
+      color: white;
+    }
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 1rem;
+      gap: 1rem;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 400px;
+    }
+    .card iframe {
+      width: 100%;
+      aspect-ratio: 16/9;
+      border: none;
+    }
+    .card-content {
+      padding: 1rem;
+    }
+    .card-content h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card-content p {
+      margin: 0.3rem 0;
+      font-size: 0.95rem;
+    }
+    .card-content a {
+      margin-top: 0.7rem;
+      display: inline-block;
+      background-color: #8e294f;
+      color: white;
+      padding: 0.5rem 1rem;
+      text-decoration: none;
+      border-radius: 5px;
+      font-size: 0.9rem;
+    }
+    .list-view .card {
+      flex-direction: row;
+      max-width: 800px;
+    }
+    .list-view .card iframe {
+      width: 40%;
+    }
+    .list-view .card-content {
+      padding: 1rem;
+      flex: 1;
+    }
+    @media (max-width: 800px) {
+      .gallery-view .card { max-width: 100%; }
+    }
+    @media (max-width: 600px) {
+      .card { max-width: 100%; }
+      .list-view .card { flex-direction: column; }
+      .list-view .card iframe { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>Calendrier événements mixité</header>
+  <div class="toggle-buttons">
+    <button id="btnGallery" class="active" onclick="toggleView('gallery')">🖼️ Galerie</button>
+    <button id="btnList" onclick="toggleView('list')">📋 Liste</button>
+  </div>
+  <div id="galleryView" class="container gallery-view"></div>
+  <div id="listView" class="container list-view" style="display: none;"></div>
 
-  function toggleView(view) {
-    document.getElementById('galleryView').style.display = view === 'gallery' ? 'flex' : 'none';
-    document.getElementById('listView').style.display = view === 'list' ? 'flex' : 'none';
-    document.getElementById('btnGallery').classList.toggle('active', view === 'gallery');
-    document.getElementById('btnList').classList.toggle('active', view === 'list');
-  }
+  <script>
+    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSlXIsjALEYwBr5Beuw4L7cxsgLrlWDUMifLFd7Gy-lgtOV_t9hzTaOsOoK87hGigHJcr6Y7vlxY13a/pub?gid=153886035&single=true&output=csv";
 
-  function csvToArray(str, delimiter = ",") {
-    const rows = str.trim().split("\n");
-    return rows.map(row => {
-      const values = [];
-      let inQuotes = false, value = "";
-      for (let char of row) {
-        if (char === '"') inQuotes = !inQuotes;
-        else if (char === delimiter && !inQuotes) {
-          values.push(value.trim());
-          value = "";
-        } else value += char;
-      }
-      values.push(value.trim());
-      return values;
-    });
-  }
+    function toggleView(view) {
+      document.getElementById('galleryView').style.display = view === 'gallery' ? 'flex' : 'none';
+      document.getElementById('listView').style.display = view === 'list' ? 'flex' : 'none';
+      document.getElementById('btnGallery').classList.toggle('active', view === 'gallery');
+      document.getElementById('btnList').classList.toggle('active', view === 'list');
+    }
 
-  function parseFrenchDate(str) {
-    const [day, month, year] = str.split("/").map(Number);
-    return new Date(year, month - 1, day);
-  }
-
-  function getFormatIcon(format) {
-    if (!format) return "";
-    const f = format.toLowerCase();
-    if (f.includes("visi")) return "💻";
-    if (f.includes("présen")) return "🏢";
-    if (f.includes("hybride")) return "🔁";
-    return "";
-  }
-
-  fetch(sheetUrl)
-    .then(res => res.text())
-    .then(csv => {
-      const data = csvToArray(csv);
-      const headers = data[0];
-      const rows = data.slice(1);
-      const now = new Date();
-      const gallery = document.getElementById('galleryView');
-      const list = document.getElementById('listView');
-
-      const events = rows.map(row => {
-        const e = {};
-        headers.forEach((h, i) => e[h.trim()] = row[i]?.trim());
-
-        const published = (e["Publié ?"] || "").toLowerCase();
-        const rawDate = e["📆 Date de l’événement"];
-        const eventDate = rawDate ? parseFrenchDate(rawDate) : null;
-        const isValid = published === "oui" && eventDate && !isNaN(eventDate.getTime()) && eventDate >= now;
-
-        return isValid ? { ...e, eventDate } : null;
-      }).filter(Boolean);
-
-      events.sort((a, b) => a.eventDate - b.eventDate);
-
-      events.forEach(e => {
-        let imageUrl = e["Visuel"];
-        if (imageUrl && imageUrl.includes("drive.google.com")) {
-          const idMatch = imageUrl.match(/[-\w]{25,}/);
-          if (idMatch) {
-            const id = idMatch[0];
-            imageUrl = `https://images.weserv.nl/?url=drive.google.com/uc?id=${id}`;
-          }
+    function csvToArray(str, delimiter = ",") {
+      const rows = str.trim().split("\n");
+      return rows.map(row => {
+        const values = [];
+        let inQuotes = false, value = "";
+        for (let char of row) {
+          if (char === '"') inQuotes = !inQuotes;
+          else if (char === delimiter && !inQuotes) {
+            values.push(value.trim());
+            value = "";
+          } else value += char;
         }
-
-        const title = e["📝 Titre de l’événement"];
-        const heure = e["🕐 Heure"];
-        const orga = e["🎓 Association organisatrice"];
-        const desc = e["📄 Description courte de l’événement"];
-        const lieu = e["📍 Adresse de l’événement"];
-        const lien = e["📢 Lien vers la page d'inscription"];
-        const dateAffichee = e["Date finale"];
-        const format = e["⚙️Format"];
-        const lieuAffiche = (format && format.toLowerCase() === "hybride") ? `${lieu} + visio` : lieu;
-        const formatIcon = getFormatIcon(format);
-
-        const html = `
-          <div class="card">
-            <img src="${imageUrl}" alt="Visuel de l’événement">
-            <div class="card-content">
-              <h3>${title} <span class="format-icon">${formatIcon}</span></h3>
-              <p><strong>📅</strong> ${dateAffichee} – ${heure}</p>
-              <p><strong>📍</strong> ${lieuAffiche}</p>
-              <p><strong>👥</strong> ${orga}</p>
-              <p>${desc}</p>
-              <a href="${lien}" target="_blank">En savoir +</a>
-            </div>
-          </div>`;
-        gallery.innerHTML += html;
-        list.innerHTML += html;
+        values.push(value.trim());
+        return values;
       });
-    });
-</script>
+    }
+
+    function parseFrenchDate(str) {
+      const [day, month, year] = str.split("/").map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    function getFormatIcon(format) {
+      if (!format) return "";
+      const f = format.toLowerCase();
+      if (f.includes("visi")) return "💻";
+      if (f.includes("présen")) return "🏢";
+      if (f.includes("hybride")) return "🔁";
+      return "";
+    }
+
+    fetch(sheetUrl)
+      .then(res => res.text())
+      .then(csv => {
+        const data = csvToArray(csv);
+        const headers = data[0];
+        const rows = data.slice(1);
+        const now = new Date();
+        const gallery = document.getElementById('galleryView');
+        const list = document.getElementById('listView');
+
+        const events = rows.map(row => {
+          const e = {};
+          headers.forEach((h, i) => e[h.trim()] = row[i]?.trim());
+
+          const published = (e["Publié ?"] || "").toLowerCase();
+          const rawDate = e["📆 Date de l’événement"];
+          const eventDate = rawDate ? parseFrenchDate(rawDate) : null;
+          const isValid = published === "oui" && eventDate && !isNaN(eventDate.getTime()) && eventDate >= now;
+
+          return isValid ? { ...e, eventDate } : null;
+        }).filter(Boolean);
+
+        events.sort((a, b) => a.eventDate - b.eventDate);
+
+        events.forEach(e => {
+          const imageUrl = e["Visuel"];
+          const title = e["📝 Titre de l’événement"];
+          const heure = e["🕐 Heure"];
+          const orga = e["🎓 Association organisatrice"];
+          const desc = e["📄 Description courte de l’événement"];
+          const lieu = e["📍 Adresse de l’événement"];
+          const lien = e["📢 Lien vers la page d'inscription"];
+          const dateAffichee = e["Date finale"];
+          const format = e["⚙️Format"];
+          const lieuAffiche = (format && format.toLowerCase() === "hybride") ? `${lieu} + visio` : lieu;
+          const formatIcon = getFormatIcon(format);
+
+          const html = `
+            <div class="card">
+              <iframe src="${imageUrl}" style="width:100%;aspect-ratio:16/9;border:none;"></iframe>
+              <div class="card-content">
+                <h3>${title} <span class="format-icon">${formatIcon}</span></h3>
+                <p><strong>📅</strong> ${dateAffichee} – ${heure}</p>
+                <p><strong>📍</strong> ${lieuAffiche}</p>
+                <p><strong>👥</strong> ${orga}</p>
+                <p>${desc}</p>
+                <a href="${lien}" target="_blank">En savoir +</a>
+              </div>
+            </div>`;
+          gallery.innerHTML += html;
+          list.innerHTML += html;
+        });
+      });
+  </script>
+</body>
+</html>
