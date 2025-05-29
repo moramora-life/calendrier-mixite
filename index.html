@@ -112,12 +112,20 @@
       return rows.map(row => {
         const values = [];
         let inQuotes = false, value = "";
-        for (let char of row) {
-          if (char === '"') inQuotes = !inQuotes;
-          else if (char === delimiter && !inQuotes) {
+        for (let i = 0; i < row.length; i++) {
+          const char = row[i];
+          const nextChar = row[i + 1];
+          if (char === '"' && inQuotes && nextChar === '"') {
+            value += '"';
+            i++;
+          } else if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === delimiter && !inQuotes) {
             values.push(value.trim());
             value = "";
-          } else value += char;
+          } else {
+            value += char;
+          }
         }
         values.push(value.trim());
         return values;
@@ -131,6 +139,11 @@
       if (f.includes("présen")) return "🏢";
       if (f.includes("hybride")) return "🔁";
       return "";
+    }
+
+    function extractDriveId(link) {
+      const match = link.match(/[-\w]{25,}/);
+      return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : "";
     }
 
     fetch(sheetUrl)
@@ -148,18 +161,15 @@
           headers.forEach((h, i) => obj[h.trim()] = row[i]?.trim());
           return obj;
         }).filter(e => {
-          const valid = (e["Publié ?"] || "").toLowerCase() === "oui";
+          const published = (e["Publié ?"] || "").trim().toLowerCase() === "oui";
           const date = new Date(e["📆 Date de l’événement"]);
-          return valid && !isNaN(date.getTime()) && date >= now;
+          return published && !isNaN(date.getTime()) && date >= now;
         });
 
         events.sort((a, b) => new Date(a["📆 Date de l’événement"]) - new Date(b["📆 Date de l’événement"]));
 
         events.forEach(e => {
-          const image = e["🖼️ Visuel de l'événement (format paysage)"];
-          const imageId = image?.includes("id=") ? image.split("id=")[1] : (image?.match(/[-\w]{25,}/) || [])[0];
-          const imageUrl = imageId ? `https://drive.google.com/uc?export=view&id=${imageId}` : "";
-
+          const imageUrl = extractDriveId(e["🖼️ Visuel de l'événement (format paysage)"]);
           const title = e["📝 Titre de l’événement"];
           const heure = e["🕐 Heure"];
           const orga = e["🎓 Association organisatrice"];
