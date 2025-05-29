@@ -38,10 +38,10 @@
       width: 100%;
       max-width: 400px;
     }
-    .card iframe {
+    .card img {
       width: 100%;
       aspect-ratio: 16/9;
-      border: none;
+      object-fit: cover;
     }
     .card-content {
       padding: 1rem;
@@ -71,8 +71,9 @@
       flex-direction: row;
       max-width: 800px;
     }
-    .list-view .card iframe {
+    .list-view .card img {
       width: 40%;
+      height: auto;
     }
     .list-view .card-content {
       padding: 1rem;
@@ -84,7 +85,7 @@
     @media (max-width: 600px) {
       .card { max-width: 100%; }
       .list-view .card { flex-direction: column; }
-      .list-view .card iframe { width: 100%; }
+      .list-view .card img { width: 100%; }
     }
   </style>
 </head>
@@ -98,7 +99,7 @@
   <div id="listView" class="container list-view" style="display: none;"></div>
 
   <script>
-    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSlXIsjALEYwBr5Beuw4L7cxsgLrlWDUMifLFd7Gy-lgtOV_t9hzTaOsOoK87hGigHJcr6Y7vlxY13a/pub?gid=153886035&single=true&output=csv";
+    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSX69M9TWwSRdV0OQT8kjW436XQHM8VCTg0BBoDDFIfMYavOSImLzx-XjK4rYnCAy7x-kggRyXUWd-m/pub?gid=1245580470&single=true&output=csv";
 
     function toggleView(view) {
       document.getElementById('galleryView').style.display = view === 'gallery' ? 'flex' : 'none';
@@ -163,27 +164,29 @@
         events.sort((a, b) => a.eventDate - b.eventDate);
 
         events.forEach(e => {
-          const imageUrl = e["Visuel"];
+          const imageUrl = e["Lien Cloudinary"];
           const title = e["📝 Titre de l’événement"];
           const heure = e["🕐 Heure"];
           const orga = e["🎓 Association organisatrice"];
           const desc = e["📄 Description courte de l’événement"];
           const lieu = e["📍 Adresse de l’événement"];
-          const lien = e["📢 Lien vers la page d'inscription"];
+          const lienBrut = e["📢 Lien vers la page d'inscription"];
+          const lien = lienBrut?.startsWith("www.") ? `https://${lienBrut}` : lienBrut;
           const dateAffichee = e["Date finale"];
           const format = e["⚙️Format"];
-          const lieuAffiche = (format && format.toLowerCase() === "hybride") ? `${lieu} + visio` : lieu;
           const formatIcon = getFormatIcon(format);
+          const lieuAffiche = format?.toLowerCase().includes("visio") ? "En visio" :
+                              format?.toLowerCase().includes("hybride") ? `${lieu} + visio` : lieu;
 
           const html = `
             <div class="card">
-              <iframe src="${imageUrl}" style="width:100%;aspect-ratio:16/9;border:none;"></iframe>
+              <img src="${imageUrl}" alt="Visuel de l'événement" />
               <div class="card-content">
                 <h3>${title} <span class="format-icon">${formatIcon}</span></h3>
                 <p><strong>📅</strong> ${dateAffichee} – ${heure}</p>
                 <p><strong>📍</strong> ${lieuAffiche}</p>
                 <p><strong>👥</strong> ${orga}</p>
-                <p>${desc}</p>
+                <p style="margin-top: 0.5rem;">${desc}</p>
                 <a href="${lien}" target="_blank">En savoir +</a>
               </div>
             </div>`;
