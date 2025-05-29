@@ -1,54 +1,202 @@
-fetch(sheetUrl)
-  .then(res => res.text())
-  .then(csv => {
-    const data = csvToArray(csv);
-    const headers = data[0];
-    const rows = data.slice(1);
-    const now = new Date();
-    const gallery = document.getElementById('galleryView');
-    const list = document.getElementById('listView');
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calendrier événements mixité</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; margin: 0; background: #fff; color: #333; }
+    header { padding: 1rem; text-align: center; background-color: #8e294f; color: white; font-size: 1.5rem; }
+    .toggle-buttons { display: flex; justify-content: center; gap: 1rem; margin: 1rem 0; flex-wrap: wrap; }
+    .toggle-buttons button {
+      padding: 0.5rem 1rem;
+      border: none;
+      background-color: #eee;
+      color: #333;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .toggle-buttons button.active {
+      background-color: #8e294f;
+      color: white;
+    }
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 1rem;
+      gap: 1rem;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 400px;
+    }
+    .card img {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+    }
+    .card-content {
+      padding: 1rem;
+    }
+    .card-content h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card-content p {
+      margin: 0.3rem 0;
+      font-size: 0.95rem;
+    }
+    .card-content a {
+      margin-top: 0.7rem;
+      display: inline-block;
+      background-color: #8e294f;
+      color: white;
+      padding: 0.5rem 1rem;
+      text-decoration: none;
+      border-radius: 5px;
+      font-size: 0.9rem;
+    }
+    .list-view .card {
+      flex-direction: row;
+      max-width: 800px;
+    }
+    .list-view .card img {
+      width: 40%;
+    }
+    .list-view .card-content {
+      padding: 1rem;
+      flex: 1;
+    }
+    @media (max-width: 800px) {
+      .gallery-view .card { max-width: 100%; }
+    }
+    @media (max-width: 600px) {
+      .card { max-width: 100%; }
+      .list-view .card { flex-direction: column; }
+      .list-view .card img { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>Calendrier événements mixité</header>
+  <div class="toggle-buttons">
+    <button id="btnGallery" class="active" onclick="toggleView('gallery')">🖼️ Galerie</button>
+    <button id="btnList" onclick="toggleView('list')">📋 Liste</button>
+  </div>
+  <div id="galleryView" class="container gallery-view"></div>
+  <div id="listView" class="container list-view" style="display: none;"></div>
 
-    const events = rows.map(row => {
-      const obj = {};
-      headers.forEach((h, i) => obj[h.trim()] = row[i]?.trim());
-      return obj;
-    }).filter(e => {
-      const published = (e["Publié ?"] || "").toLowerCase();
-      const isValid = published === "oui";
-      const [year, month, day] = (e["📆 Date de l’événement"] || "").split("-").map(n => parseInt(n));
-      const date = new Date(year, month - 1, day);
-      return isValid && !isNaN(date.getTime()) && date >= now;
-    });
+  <script>
+    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSlXIsjALEYwBr5Beuw4L7cxsgLrlWDUMifLFd7Gy-lgtOV_t9hzTaOsOoK87hGigHJcr6Y7vlxY13a/pub?gid=153886035&single=true&output=csv";
 
-    events.sort((a, b) => new Date(a["📆 Date de l’événement"]) - new Date(b["📆 Date de l’événement"]));
+    function toggleView(view) {
+      document.getElementById('galleryView').style.display = view === 'gallery' ? 'flex' : 'none';
+      document.getElementById('listView').style.display = view === 'list' ? 'flex' : 'none';
+      document.getElementById('btnGallery').classList.toggle('active', view === 'gallery');
+      document.getElementById('btnList').classList.toggle('active', view === 'list');
+    }
 
-    events.forEach(e => {
-      const imageUrl = extractDriveImage(e["🖼️ Visuel de l'événement (format paysage)"]);
-      const title = e["📝 Titre de l’événement"];
-      const heure = e["🕐 Heure"];
-      const orga = e["🎓 Association organisatrice"];
-      const desc = e["📄 Description courte de l’événement"];
-      const lieu = e["📍 Adresse de l’événement"];
-      const lienBrut = e["📢 Lien vers la page d'inscription"];
-      const lien = lienBrut.startsWith("http") ? lienBrut : "https://" + lienBrut;
-      const dateAffichee = e["Date finale"];
-      const format = e["⚙️Format"];
-      const lieuAffiche = (format && format.toLowerCase() === "hybride") ? `${lieu} + visio` : lieu;
-      const formatIcon = getFormatIcon(format);
+    function csvToArray(str, delimiter = ",") {
+      const rows = str.trim().split("\n");
+      return rows.map(row => {
+        const values = [];
+        let inQuotes = false, value = "";
+        for (let i = 0; i < row.length; i++) {
+          const char = row[i];
+          const nextChar = row[i + 1];
+          if (char === '"' && inQuotes && nextChar === '"') {
+            value += '"';
+            i++;
+          } else if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === delimiter && !inQuotes) {
+            values.push(value.trim());
+            value = "";
+          } else {
+            value += char;
+          }
+        }
+        values.push(value.trim());
+        return values;
+      });
+    }
 
-      const html = `
-        <div class="card">
-          <img src="${imageUrl}" alt="Visuel de l’événement">
-          <div class="card-content">
-            <h3>${title} <span class="format-icon">${formatIcon}</span></h3>
-            <p><strong>📅</strong> ${dateAffichee} – ${heure}</p>
-            <p><strong>📍</strong> ${lieuAffiche}</p>
-            <p><strong>👥</strong> ${orga}</p>
-            <p>${desc}</p>
-            <a href="${lien}" target="_blank">En savoir +</a>
-          </div>
-        </div>`;
-      gallery.innerHTML += html;
-      list.innerHTML += html;
-    });
-  });
+    function getFormatIcon(format) {
+      if (!format) return "";
+      const f = format.toLowerCase();
+      if (f.includes("visi")) return "💻";
+      if (f.includes("présen")) return "🏢";
+      if (f.includes("hybride")) return "🔁";
+      return "";
+    }
+
+    function extractDriveId(link) {
+      const match = link.match(/[-\w]{25,}/);
+      return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : "";
+    }
+
+    fetch(sheetUrl)
+      .then(res => res.text())
+      .then(csv => {
+        const data = csvToArray(csv);
+        const headers = data[0];
+        const rows = data.slice(1);
+        const now = new Date();
+        const gallery = document.getElementById('galleryView');
+        const list = document.getElementById('listView');
+
+        const events = rows.map(row => {
+          const obj = {};
+          headers.forEach((h, i) => obj[h.trim()] = row[i]?.trim());
+          return obj;
+        }).filter(e => {
+          const published = (e["Publié ?"] || "").trim().toLowerCase() === "oui";
+          const date = new Date(e["📆 Date de l’événement"]);
+          return published && !isNaN(date.getTime()) && date >= now;
+        });
+
+        events.sort((a, b) => new Date(a["📆 Date de l’événement"]) - new Date(b["📆 Date de l’événement"]));
+
+        events.forEach(e => {
+          const imageUrl = extractDriveId(e["🖼️ Visuel de l'événement (format paysage)"]);
+          const title = e["📝 Titre de l’événement"];
+          const heure = e["🕐 Heure"];
+          const orga = e["🎓 Association organisatrice"];
+          const desc = e["📄 Description courte de l’événement"];
+          const lieu = e["📍 Adresse de l’événement"];
+          const lien = e["📢 Lien vers la page d'inscription"];
+          const dateAffichee = e["Date finale"];
+          const format = e["⚙️Format"];
+          const lieuAffiche = (format && format.toLowerCase() === "hybride") ? `${lieu} + visio` : lieu;
+          const formatIcon = getFormatIcon(format);
+
+          const html = `
+            <div class="card">
+              <img src="${imageUrl}" alt="Visuel de l’événement">
+              <div class="card-content">
+                <h3>${title} <span class="format-icon">${formatIcon}</span></h3>
+                <p><strong>📅</strong> ${dateAffichee} – ${heure}</p>
+                <p><strong>📍</strong> ${lieuAffiche}</p>
+                <p><strong>👥</strong> ${orga}</p>
+                <p>${desc}</p>
+                <a href="${lien}" target="_blank">En savoir +</a>
+              </div>
+            </div>`;
+          gallery.innerHTML += html;
+          list.innerHTML += html;
+        });
+      });
+  </script>
+</body>
+</html>
