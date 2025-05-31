@@ -72,31 +72,34 @@
       color: #666;
       margin-bottom: 0.2rem;
     }
-    .card-content .description {
-      font-size: 1rem;
-      color: #333;
-      font-style: italic;
-      margin-top: 0.7rem;
-      line-height: 1.5;
-    }
     .card-content .orga {
       font-size: 0.9rem;
       color: #666;
       margin-top: 0.3rem;
     }
-    .card-content a {
-      display: inline-block;
-      background-color: #8e294f;
-      color: white;
-      padding: 0.5rem 1rem;
+
+    .card-link {
       text-decoration: none;
-      border-radius: 5px;
-      font-size: 0.9rem;
-      margin-top: 1rem;
+      color: inherit;
+      display: block;
     }
-    .card-content .cta {
-      text-align: center;
+
+    .card-link h3 {
+      color: #333;
+      text-decoration: none;
+      transition: all 0.2s;
     }
+
+    .card-link:hover h3 {
+      text-decoration: underline;
+    }
+
+    @media (hover: hover) {
+      .card-link {
+        cursor: pointer;
+      }
+    }
+
     .list-view .card {
       flex-direction: row;
       max-width: 800px;
@@ -198,27 +201,36 @@
           const title = e["📝 Titre de l’événement"];
           const heure = e["🕐 Heure"];
           const orga = e["🎓 Association organisatrice"];
-          const desc = e["📄 Description courte de l’événement"];
-          const ville = e["📍 Adresse de l’événement"]?.split(",")[0] || "France";
+          const ville = e["📍 Adresse de l’événement"];
           const lienBrut = e["📢 Lien vers la page d'inscription"];
           const lien = lienBrut?.startsWith("www.") ? `https://${lienBrut}` : lienBrut;
           const dateAffichee = e["Date finale"];
           const format = e["⚙️Format"];
           const formatIcon = getFormatIcon(format);
 
+          const eventDate = e.eventDate;
+          const today = new Date();
+          const tomorrow = new Date();
+          tomorrow.setDate(today.getDate() + 1);
+          let dateLabel = dateAffichee;
+
+          if (eventDate.toDateString() === today.toDateString()) {
+            dateLabel = "Aujourd’hui";
+          } else if (eventDate.toDateString() === tomorrow.toDateString()) {
+            dateLabel = "Demain";
+          }
+
           const html = `
             <div class="card">
-              <img src="${imageUrl}" alt="Visuel de l'événement" />
-              <div class="card-content">
-                <h3>${title}</h3>
-                <div class="meta">📅 ${dateAffichee} – ${heure} — ${formatIcon} ${format}</div>
-                <div class="meta">📍${ville}</div>
-                <div class="orga">✨ ${orga}</div>
-                <p class="description">${desc}</p>
-                <div class="cta">
-                  <a href="${lien}" target="_blank">En savoir +</a>
+              <a href="${lien}" target="_blank" class="card-link">
+                <img src="${imageUrl}" alt="Visuel de l'événement" />
+                <div class="card-content">
+                  <h3>${title}</h3>
+                  <div class="meta">📅 ${dateLabel} à ${heure} — ${formatIcon} ${format}</div>
+                  <div class="meta">📍${ville}</div>
+                  <div class="orga">📢 ${orga}</div>
                 </div>
-              </div>
+              </a>
             </div>`;
           gallery.innerHTML += html;
           list.innerHTML += html;
