@@ -166,8 +166,8 @@
     function getFormatIcon(format) {
       if (!format) return "";
       const f = format.toLowerCase();
-      if (f.includes("visi")) return "💻";
-      if (f.includes("hybride")) return "👥+💻";
+      if (f.includes("visi")) return "🖥️";
+      if (f.includes("hybride")) return "👥🖥️";
       if (f.includes("présen")) return "👥";
       return "";
     }
@@ -226,9 +226,9 @@
                 <img src="${imageUrl}" alt="Visuel de l'événement" />
                 <div class="card-content">
                   <h3>${title}</h3>
-                  <div class="meta">📅 ${dateLabel} à ${heure} — ${formatIcon} ${format}</div>
-                  <div class="meta">📍${ville}</div>
-                  <div class="orga">📢 ${orga}</div>
+                  <div class="meta">📅 ${dateLabel} à ${heure} ${formatIcon} ${format}</div>
+                  <div class="meta">📍 ${ville}</div>
+                  <div class="orga">🔉 ${orga}</div>
                 </div>
               </a>
             </div>`;
