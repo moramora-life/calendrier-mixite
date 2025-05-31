@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calendrier événements mixité</title>
   <style>
-    * { box-sizing: border-box; }
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -21,49 +20,41 @@
       padding: 0.5rem;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       display: flex;
-      flex-wrap: wrap;
       gap: 0.5rem;
       justify-content: center;
-      align-items: center;
+      flex-wrap: wrap;
     }
 
-    .filter-bar select {
-      padding: 0.4rem 1.2rem 0.4rem 0.6rem;
+    .filter-button, .filter-tag {
       font-size: 1rem;
+      padding: 0.4rem 0.8rem;
       border-radius: 999px;
       border: 1px solid #ccc;
-      color: #000;
-      background: #fff url('data:image/svg+xml;utf8,<svg fill="%23000" height="18" viewBox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat right 0.6rem center;
-      background-size: 1rem;
-      appearance: none;
-      -webkit-appearance: none;
-      -moz-appearance: none;
-    }
-
-    .active-filters {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin: 0.5rem;
-      gap: 0.5rem;
-    }
-
-    .filter-pill {
-      background: #8e294f;
-      color: white;
-      border-radius: 999px;
-      padding: 0.4rem 1rem;
-      font-size: 0.9rem;
+      background: white;
+      color: black;
+      cursor: pointer;
       display: flex;
       align-items: center;
+      gap: 0.4rem;
     }
 
-    .filter-pill button {
+    .filter-button::after {
+      content: "▼";
+      font-size: 0.7rem;
+    }
+
+    .filter-tag {
+      background: #8e294f;
+      color: white;
+      border: none;
+    }
+
+    .filter-tag button {
       background: none;
       border: none;
       color: white;
-      font-weight: bold;
-      margin-left: 0.5rem;
+      font-size: 1rem;
+      margin-left: 0.3rem;
       cursor: pointer;
     }
 
@@ -91,10 +82,6 @@
       color: inherit;
     }
 
-    .card-link:hover h3 {
-      text-decoration: underline;
-    }
-
     .card-link img {
       width: 100%;
       aspect-ratio: 16/9;
@@ -110,127 +97,106 @@
       font-size: 1.2rem;
     }
 
-    .card-content .meta {
+    .meta, .tarif, .orga {
       font-size: 0.9rem;
-      color: #666;
       margin-bottom: 0.2rem;
     }
 
-    .card-content .meta.date-time {
+    .meta.date-time {
       font-weight: bold;
       color: #333;
     }
 
-    .card-content .tarif {
+    .tarif, .orga {
       font-weight: bold;
-      font-size: 0.9rem;
-      margin: 0.3rem 0;
-    }
-
-    .card-content .orga {
-      font-size: 0.9rem;
-      font-weight: bold;
-      color: #333;
     }
   </style>
 </head>
 <body>
   <div class="filter-bar">
-    <select id="dateFilter">
-      <option value="">Date</option>
-      <option value="today">Aujourd’hui</option>
-      <option value="tomorrow">Demain</option>
-      <option value="week">Cette semaine</option>
-      <option value="nextWeek">Semaine suivante</option>
-      <option value="month">Ce mois-ci</option>
-      <option value="nextMonth">Le mois prochain</option>
-    </select>
-    <select id="priceFilter">
-      <option value="">Prix</option>
-      <option value="gratuit">Gratuit</option>
-      <option value="payant">Payant</option>
-    </select>
+    <div id="dateContainer"></div>
+    <div id="priceContainer"></div>
   </div>
-
-  <div id="activeFilters" class="active-filters"></div>
   <div id="eventContainer" class="container"></div>
 
   <script>
     const filters = { date: "", price: "" };
     const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSX69M9TWwSRdV0OQT8kjW436XQHM8VCTg0BBoDDFIfMYavOSImLzx-XjK4rYnCAy7x-kggRyXUWd-m/pub?gid=1245580470&single=true&output=csv";
 
+    const dateOptions = {
+      "": "Date", "today": "Aujourd’hui", "tomorrow": "Demain",
+      "week": "Cette semaine", "nextWeek": "Semaine suivante",
+      "month": "Ce mois-ci", "nextMonth": "Le mois prochain"
+    };
+
+    const priceOptions = {
+      "": "Prix", "gratuit": "Gratuit", "payant": "Payant"
+    };
+
     function csvToArray(str, delimiter = ",") {
       const rows = str.trim().split("\n");
       return rows.map(row => {
-        const values = [], chars = row.split('');
-        let val = '', inQuotes = false;
-        for (const c of chars) {
-          if (c === '"') inQuotes = !inQuotes;
-          else if (c === delimiter && !inQuotes) {
-            values.push(val); val = '';
-          } else val += c;
+        const values = [];
+        let inQuotes = false, value = "";
+        for (let char of row) {
+          if (char === '"') inQuotes = !inQuotes;
+          else if (char === delimiter && !inQuotes) {
+            values.push(value.trim());
+            value = "";
+          } else value += char;
         }
-        values.push(val);
+        values.push(value.trim());
         return values;
       });
     }
 
     function parseFrenchDate(str) {
-      const [d, m, y] = str.split("/").map(Number);
-      return new Date(y, m - 1, d);
+      const [day, month, year] = str.split("/").map(Number);
+      return new Date(year, month - 1, day);
     }
 
     function getDateLabel(date) {
-      const now = new Date(), tomorrow = new Date(now);
-      tomorrow.setDate(now.getDate() + 1);
+      const now = new Date();
+      const tomorrow = new Date(); tomorrow.setDate(now.getDate() + 1);
       if (date.toDateString() === now.toDateString()) return "Aujourd’hui";
       if (date.toDateString() === tomorrow.toDateString()) return "Demain";
-      return date.toLocaleDateString("fr-FR", { weekday: 'short', day: 'numeric', month: 'short' }).replace(/^./, s => s.toUpperCase());
+      const raw = date.toLocaleDateString("fr-FR", { weekday: 'short', day: 'numeric', month: 'short' });
+      return raw.charAt(0).toUpperCase() + raw.slice(1);
     }
 
     function getFormatIcon(format) {
-      const f = (format || '').toLowerCase();
-      if (f.includes('visi')) return '🖥️';
-      if (f.includes('hybride')) return '👥🖥️';
-      if (f.includes('présen')) return '👥';
-      return '';
+      if (!format) return "";
+      const f = format.toLowerCase();
+      if (f.includes("visi")) return "🖥️";
+      if (f.includes("hybride")) return "👥🖥️";
+      if (f.includes("présen")) return "👥";
+      return "";
     }
 
-    function renderFilters() {
-      const el = document.getElementById("activeFilters");
-      el.innerHTML = "";
-      if (filters.date) {
-        const label = document.querySelector(`#dateFilter option[value="${filters.date}"]`).textContent;
-        el.innerHTML += `<div class="filter-pill">${label}<button onclick="removeFilter('date')">X</button></div>`;
-      }
-      if (filters.price) {
-        const label = document.querySelector(`#priceFilter option[value="${filters.price}"]`).textContent;
-        el.innerHTML += `<div class="filter-pill">${label}<button onclick="removeFilter('price')">X</button></div>`;
+    function updateFilterDisplay() {
+      const dateDiv = document.getElementById("dateContainer");
+      const priceDiv = document.getElementById("priceContainer");
+
+      dateDiv.innerHTML = filters.date
+        ? `<div class="filter-tag">Date : ${dateOptions[filters.date]}<button onclick="clearFilter('date')">X</button></div>`
+        : `<button class="filter-button" onclick="showSelect('date')">${dateOptions[""]}</button>`;
+
+      priceDiv.innerHTML = filters.price
+        ? `<div class="filter-tag">Prix : ${priceOptions[filters.price]}<button onclick="clearFilter('price')">X</button></div>`
+        : `<button class="filter-button" onclick="showSelect('price')">${priceOptions[""]}</button>`;
+    }
+
+    function showSelect(type) {
+      const value = prompt(`Choisir ${type === "date" ? "la date" : "le prix"}:\n${Object.entries(type === "date" ? dateOptions : priceOptions).filter(([k]) => k).map(([k, v]) => `${k} = ${v}`).join("\n")}`);
+      if (Object.keys(type === "date" ? dateOptions : priceOptions).includes(value)) {
+        filters[type] = value;
+        render();
       }
     }
 
-    function removeFilter(key) {
-      filters[key] = "";
-      document.getElementById(key + "Filter").value = "";
+    function clearFilter(type) {
+      filters[type] = "";
       render();
-    }
-
-    function filterMatch(e) {
-      const d = filters.date, p = filters.price, today = new Date();
-      const date = e.eventDate;
-      let matchDate = true;
-      if (d) {
-        switch (d) {
-          case "today": matchDate = date.toDateString() === today.toDateString(); break;
-          case "tomorrow": let t = new Date(today); t.setDate(t.getDate() + 1); matchDate = date.toDateString() === t.toDateString(); break;
-          case "week": let end = new Date(); end.setDate(today.getDate() + (7 - today.getDay())); matchDate = date >= today && date <= end; break;
-          case "nextWeek": let s = new Date(); s.setDate(today.getDate() + (7 - today.getDay()) + 1); let eN = new Date(s); eN.setDate(s.getDate() + 6); matchDate = date >= s && date <= eN; break;
-          case "month": let endM = new Date(today.getFullYear(), today.getMonth() + 1, 0); matchDate = date >= today && date <= endM; break;
-          case "nextMonth": let sNM = new Date(today.getFullYear(), today.getMonth() + 1, 1); let eNM = new Date(today.getFullYear(), today.getMonth() + 2, 0); matchDate = date >= sNM && date <= eNM; break;
-        }
-      }
-      const matchPrice = !p || (e["Tarif"] || '').toLowerCase() === p;
-      return matchDate && matchPrice;
     }
 
     fetch(sheetUrl)
@@ -239,47 +205,80 @@
         const data = csvToArray(csv);
         const headers = data[0];
         const rows = data.slice(1);
+        const now = new Date();
         const container = document.getElementById("eventContainer");
+
         const events = rows.map(row => {
           const e = {};
           headers.forEach((h, i) => e[h.trim()] = row[i]?.trim());
-          const raw = e["📆 Date de l’événement"];
-          e.eventDate = raw ? parseFrenchDate(raw) : null;
-          return (e["Publié ?"]?.toLowerCase() === "oui" && e.eventDate && e.eventDate >= new Date()) ? e : null;
+          const date = parseFrenchDate(e["📆 Date de l’événement"]);
+          return (e["Publié ?"]?.toLowerCase() === "oui" && !isNaN(date) && date >= now) ? { ...e, date } : null;
         }).filter(Boolean);
 
-        events.sort((a, b) => a.eventDate - b.eventDate);
+        events.sort((a, b) => a.date - b.date);
 
         window.render = () => {
-          renderFilters();
+          updateFilterDisplay();
           container.innerHTML = "";
-          const filtered = events.filter(filterMatch);
+
+          const filtered = events.filter(e => {
+            const date = e.date;
+            const d = filters.date;
+            const p = filters.price;
+
+            let matchDate = true;
+            if (d) {
+              const today = new Date();
+              const day = date.toDateString();
+              switch (d) {
+                case "today": matchDate = day === today.toDateString(); break;
+                case "tomorrow": today.setDate(today.getDate() + 1); matchDate = day === today.toDateString(); break;
+                case "week":
+                  const endWeek = new Date(); endWeek.setDate(today.getDate() + 7);
+                  matchDate = date >= today && date <= endWeek; break;
+                case "nextWeek":
+                  const start = new Date(); start.setDate(today.getDate() + 7);
+                  const end = new Date(); end.setDate(start.getDate() + 7);
+                  matchDate = date >= start && date <= end; break;
+                case "month":
+                  const endM = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                  matchDate = date >= today && date <= endM; break;
+                case "nextMonth":
+                  const s = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                  const eM = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+                  matchDate = date >= s && date <= eM; break;
+              }
+            }
+
+            const matchPrice = !p || (e["Tarif"] || "").toLowerCase() === p;
+            return matchDate && matchPrice;
+          });
+
           if (!filtered.length) {
             container.innerHTML = `<p style="text-align:center;margin-top:2rem;">Aucun événement ne correspond à votre recherche. Ajuster les filtres pour explorer d'autres opportunités.</p>`;
             return;
           }
+
           filtered.forEach(e => {
-            const dateLabel = getDateLabel(e.eventDate);
+            const dateLabel = getDateLabel(e.date);
             const formatIcon = getFormatIcon(e["⚙️Format"]);
-            const tarif = (e["Tarif"] || '').toLowerCase() === "gratuit" ? "🎟️ Gratuit" : `🎟️ À partir de ${e["Billet à partir de"]}`;
+            const prix = e["Tarif"]?.toLowerCase() === "gratuit" ? "🎟️ Gratuit" : `🎟️ À partir de ${e["Billet à partir de"]}`;
+
             container.innerHTML += `
               <div class="card">
-                <a href="${e["📢 Lien vers la page d'inscription"]}" target="_blank" rel="noopener noreferrer" class="card-link">
+                <a href="${e["📢 Lien vers la page d'inscription"]}" target="_blank" class="card-link">
                   <img src="${e["Lien Cloudinary"]}" alt="Visuel de l'événement" />
                   <div class="card-content">
                     <h3>${e["📝 Titre de l’événement"]}</h3>
                     <div class="meta date-time">📅 ${dateLabel} à ${e["🕐 Heure"]} – ${formatIcon} ${e["⚙️Format"]}</div>
                     <div class="meta">📍${e["📍 Adresse de l’événement"]}</div>
-                    <div class="tarif">${tarif}</div>
+                    <div class="tarif">${prix}</div>
                     <div class="orga">🔊 ${e["🎓 Association organisatrice"]}</div>
                   </div>
                 </a>
               </div>`;
           });
         };
-
-        document.getElementById("dateFilter").addEventListener("change", e => { filters.date = e.target.value; render(); });
-        document.getElementById("priceFilter").addEventListener("change", e => { filters.price = e.target.value; render(); });
 
         render();
       });
