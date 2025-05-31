@@ -55,7 +55,14 @@
       width: 100%;
       max-width: 400px;
     }
-    .card img {
+    .card-link {
+      text-decoration: none;
+      color: inherit;
+    }
+    .card-link:hover h3 {
+      text-decoration: underline;
+    }
+    .card-link img {
       width: 100%;
       aspect-ratio: 16/9;
       object-fit: cover;
@@ -66,40 +73,23 @@
     .card-content h3 {
       margin: 0 0 0.5rem;
       font-size: 1.2rem;
+      cursor: pointer;
     }
     .card-content .meta {
       font-size: 0.9rem;
       color: #666;
       margin-bottom: 0.2rem;
     }
+    .card-content .tarif {
+      font-weight: bold;
+      font-size: 0.9rem;
+      margin: 0.3rem 0;
+    }
     .card-content .orga {
       font-size: 0.9rem;
-      color: #666;
-      margin-top: 0.3rem;
-    }
-
-    .card-link {
-      text-decoration: none;
-      color: inherit;
-      display: block;
-    }
-
-    .card-link h3 {
+      font-weight: bold;
       color: #333;
-      text-decoration: none;
-      transition: all 0.2s;
     }
-
-    .card-link:hover h3 {
-      text-decoration: underline;
-    }
-
-    @media (hover: hover) {
-      .card-link {
-        cursor: pointer;
-      }
-    }
-
     .list-view .card {
       flex-direction: row;
       max-width: 800px;
@@ -166,10 +156,21 @@
     function getFormatIcon(format) {
       if (!format) return "";
       const f = format.toLowerCase();
-      if (f.includes("visi")) return "🖥️";
-      if (f.includes("hybride")) return "👥🖥️";
+      if (f.includes("visi")) return "💻";
+      if (f.includes("hybride")) return "👥+💻";
       if (f.includes("présen")) return "👥";
       return "";
+    }
+
+    function getDateLabel(date) {
+      const now = new Date();
+      const tomorrow = new Date();
+      tomorrow.setDate(now.getDate() + 1);
+
+      if (date.toDateString() === now.toDateString()) return "Aujourd'hui";
+      if (date.toDateString() === tomorrow.toDateString()) return "Demain";
+
+      return date.toLocaleDateString("fr-FR", { weekday: 'short', day: 'numeric', month: 'short' });
     }
 
     fetch(sheetUrl)
@@ -204,31 +205,27 @@
           const ville = e["📍 Adresse de l’événement"];
           const lienBrut = e["📢 Lien vers la page d'inscription"];
           const lien = lienBrut?.startsWith("www.") ? `https://${lienBrut}` : lienBrut;
-          const dateAffichee = e["Date finale"];
           const format = e["⚙️Format"];
           const formatIcon = getFormatIcon(format);
+          const tarif = e["Tarif"];
+          const prix = e["Billet à partir de"];
 
-          const eventDate = e.eventDate;
-          const today = new Date();
-          const tomorrow = new Date();
-          tomorrow.setDate(today.getDate() + 1);
-          let dateLabel = dateAffichee;
-
-          if (eventDate.toDateString() === today.toDateString()) {
-            dateLabel = "Aujourd’hui";
-          } else if (eventDate.toDateString() === tomorrow.toDateString()) {
-            dateLabel = "Demain";
-          }
+          const dateLabel = getDateLabel(e.eventDate);
+          const metaLine = `📅 ${dateLabel} à ${heure} – ${formatIcon} ${format}`;
+          const tarifLine = tarif?.toLowerCase() === "gratuit"
+            ? "🎟️ Gratuit"
+            : `🎟️ À partir de ${prix}`;
 
           const html = `
             <div class="card">
-              <a href="${lien}" target="_blank" class="card-link">
+              <a href="${lien}" target="_blank" rel="noopener noreferrer" class="card-link">
                 <img src="${imageUrl}" alt="Visuel de l'événement" />
                 <div class="card-content">
                   <h3>${title}</h3>
-                  <div class="meta">📅 ${dateLabel} à ${heure} ${formatIcon} ${format}</div>
-                  <div class="meta">📍 ${ville}</div>
-                  <div class="orga">🔉 ${orga}</div>
+                  <div class="meta">${metaLine}</div>
+                  <div class="meta">📍${ville}</div>
+                  <div class="tarif">${tarifLine}</div>
+                  <div class="orga">🔊 ${orga}</div>
                 </div>
               </a>
             </div>`;
