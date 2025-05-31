@@ -24,6 +24,7 @@
       flex-wrap: wrap;
       gap: 0.5rem;
       justify-content: center;
+      align-items: center;
     }
 
     .filter-bar select,
@@ -32,6 +33,30 @@
       font-size: 1rem;
       border-radius: 4px;
       border: 1px solid #ccc;
+    }
+
+    .active-filters {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.3rem;
+      margin-top: 0.5rem;
+    }
+
+    .filter-tag {
+      background-color: #eee;
+      border-radius: 3px;
+      padding: 0.2rem 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .filter-tag button {
+      background: none;
+      border: none;
+      margin-left: 0.3rem;
+      cursor: pointer;
+      font-weight: bold;
+      color: #8e294f;
     }
 
     .container {
@@ -95,6 +120,13 @@
       font-weight: bold;
       color: #333;
     }
+
+    #noEventsMessage {
+      text-align: center;
+      font-style: italic;
+      padding: 1rem;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -114,12 +146,21 @@
       <option value="payant">Payant</option>
     </select>
     <input type="text" id="searchInput" placeholder="🔍 Rechercher un événement..." />
+    <button onclick="resetFilters()">❌ Réinitialiser</button>
   </div>
 
+  <div class="active-filters" id="activeFilters"></div>
   <div id="eventContainer" class="container"></div>
+  <p id="noEventsMessage">Aucun événement ne correspond à votre recherche. Ajuster les filtres pour explorer d'autres opportunités.</p>
 
   <script>
     const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSX69M9TWwSRdV0OQT8kjW436XQHM8VCTg0BBoDDFIfMYavOSImLzx-XjK4rYnCAy7x-kggRyXUWd-m/pub?gid=1245580470&single=true&output=csv";
+
+    const filters = {
+      date: "",
+      price: "",
+      search: ""
+    };
 
     function csvToArray(str, delimiter = ",") {
       const rows = str.trim().split("\n");
@@ -143,6 +184,10 @@
       return new Date(year, month - 1, day);
     }
 
+    function capitalizeFirst(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
     function getFormatIcon(format) {
       if (!format) return "";
       const f = format.toLowerCase();
@@ -154,13 +199,71 @@
 
     function getDateLabel(date) {
       const now = new Date();
-      const tomorrow = new Date();
-      tomorrow.setDate(now.getDate() + 1);
-
+      const tomorrow = new Date(); tomorrow.setDate(now.getDate() + 1);
       if (date.toDateString() === now.toDateString()) return "Aujourd'hui";
       if (date.toDateString() === tomorrow.toDateString()) return "Demain";
+      const options = { weekday: 'long', day: 'numeric', month: 'short' };
+      return capitalizeFirst(date.toLocaleDateString("fr-FR", options));
+    }
 
-      return date.toLocaleDateString("fr-FR", { weekday: 'short', day: 'numeric', month: 'short' });
+    function renderFilters() {
+      const activeDiv = document.getElementById("activeFilters");
+      activeDiv.innerHTML = "";
+      if (filters.date) {
+        activeDiv.innerHTML += `<span class="filter-tag">📅 ${filters.dateLabel} <button onclick="removeFilter('date')">❌</button></span>`;
+      }
+      if (filters.price) {
+        activeDiv.innerHTML += `<span class="filter-tag">🎟️ ${capitalizeFirst(filters.price)} <button onclick="removeFilter('price')">❌</button></span>`;
+      }
+      if (filters.search) {
+        activeDiv.innerHTML += `<span class="filter-tag">🔍 ${filters.search} <button onclick="removeFilter('search')">❌</button></span>`;
+      }
+    }
+
+    function removeFilter(key) {
+      filters[key] = "";
+      document.getElementById(key + "Filter")?.value = "";
+      if (key === "search") document.getElementById("searchInput").value = "";
+      render();
+    }
+
+    function resetFilters() {
+      filters.date = "";
+      filters.price = "";
+      filters.search = "";
+      document.getElementById("dateFilter").value = "";
+      document.getElementById("priceFilter").value = "";
+      document.getElementById("searchInput").value = "";
+      render();
+    }
+
+    function applyDateFilter(dateValue, eventDate) {
+      const now = new Date();
+      const start = new Date();
+      const end = new Date();
+      switch (dateValue) {
+        case "today":
+          return eventDate.toDateString() === now.toDateString();
+        case "tomorrow":
+          const tomorrow = new Date(); tomorrow.setDate(now.getDate() + 1);
+          return eventDate.toDateString() === tomorrow.toDateString();
+        case "week":
+          end.setDate(start.getDate() + (7 - start.getDay()));
+          return eventDate >= start && eventDate <= end;
+        case "nextWeek":
+          start.setDate(start.getDate() + (7 - start.getDay()) + 1);
+          end.setDate(start.getDate() + 6);
+          return eventDate >= start && eventDate <= end;
+        case "month":
+          end.setMonth(start.getMonth() + 1, 0);
+          return eventDate >= start && eventDate <= end;
+        case "nextMonth":
+          const firstNextMonth = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+          const lastNextMonth = new Date(start.getFullYear(), start.getMonth() + 2, 0);
+          return eventDate >= firstNextMonth && eventDate <= lastNextMonth;
+        default:
+          return true;
+      }
     }
 
     fetch(sheetUrl)
@@ -171,106 +274,68 @@
         const rows = data.slice(1);
         const now = new Date();
         const container = document.getElementById('eventContainer');
+        const noEventsMessage = document.getElementById("noEventsMessage");
 
         const events = rows.map(row => {
           const e = {};
           headers.forEach((h, i) => e[h.trim()] = row[i]?.trim());
-
-          const published = (e["Publié ?"] || "").toLowerCase();
           const rawDate = e["📆 Date de l’événement"];
-          const eventDate = rawDate ? parseFrenchDate(rawDate) : null;
-          const isValid = published === "oui" && eventDate && !isNaN(eventDate.getTime()) && eventDate >= now;
-
-          return isValid ? { ...e, eventDate } : null;
+          e.eventDate = rawDate ? parseFrenchDate(rawDate) : null;
+          return (e["Publié ?"]?.toLowerCase() === "oui" && e.eventDate && e.eventDate >= now) ? e : null;
         }).filter(Boolean);
 
         events.sort((a, b) => a.eventDate - b.eventDate);
 
-        const render = () => {
-          const dateFilter = document.getElementById("dateFilter").value;
-          const priceFilter = document.getElementById("priceFilter").value;
-          const searchValue = document.getElementById("searchInput").value.toLowerCase();
-
+        window.render = () => {
+          renderFilters();
           container.innerHTML = "";
-
           const filtered = events.filter(e => {
-            const eventDay = e.eventDate;
-            const title = (e["📝 Titre de l’événement"] || "").toLowerCase();
-            const tarif = (e["Tarif"] || "").toLowerCase();
-
-            const inSearch = title.includes(searchValue);
-
-            const start = new Date();
-            const end = new Date();
-
-            switch (dateFilter) {
-              case "today":
-                return inSearch && eventDay.toDateString() === new Date().toDateString();
-              case "tomorrow":
-                const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-                return inSearch && eventDay.toDateString() === tomorrow.toDateString();
-              case "week":
-                end.setDate(start.getDate() + (7 - start.getDay()));
-                return inSearch && eventDay >= start && eventDay <= end;
-              case "nextWeek":
-                start.setDate(start.getDate() + (7 - start.getDay()) + 1);
-                end.setDate(start.getDate() + 6);
-                return inSearch && eventDay >= start && eventDay <= end;
-              case "month":
-                end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
-                return inSearch && eventDay >= start && eventDay <= end;
-              case "nextMonth":
-                const firstNextMonth = new Date(start.getFullYear(), start.getMonth() + 1, 1);
-                const lastNextMonth = new Date(start.getFullYear(), start.getMonth() + 2, 0);
-                return inSearch && eventDay >= firstNextMonth && eventDay <= lastNextMonth;
-              default:
-                return inSearch;
-            }
-          }).filter(e => {
-            const tarif = (e["Tarif"] || "").toLowerCase();
-            if (priceFilter === "gratuit") return tarif === "gratuit";
-            if (priceFilter === "payant") return tarif === "payant";
-            return true;
+            const matchesDate = !filters.date || applyDateFilter(filters.date, e.eventDate);
+            const matchesPrice = !filters.price || e["Tarif"]?.toLowerCase() === filters.price;
+            const matchesSearch = !filters.search || e["📝 Titre de l’événement"]?.toLowerCase().includes(filters.search.toLowerCase());
+            return matchesDate && matchesPrice && matchesSearch;
           });
 
-          filtered.forEach(e => {
-            const imageUrl = e["Lien Cloudinary"];
-            const title = e["📝 Titre de l’événement"];
-            const heure = e["🕐 Heure"];
-            const orga = e["🎓 Association organisatrice"];
-            const ville = e["📍 Adresse de l’événement"];
-            const lienBrut = e["📢 Lien vers la page d'inscription"];
-            const lien = lienBrut?.startsWith("www.") ? `https://${lienBrut}` : lienBrut;
-            const format = e["⚙️Format"];
-            const formatIcon = getFormatIcon(format);
-            const tarif = e["Tarif"];
-            const prix = e["Billet à partir de"];
+          if (filtered.length === 0) {
+            noEventsMessage.style.display = "block";
+          } else {
+            noEventsMessage.style.display = "none";
+          }
 
+          filtered.forEach(e => {
             const dateLabel = getDateLabel(e.eventDate);
-            const metaLine = `📅 ${dateLabel} à ${heure} – ${formatIcon} ${format}`;
-            const tarifLine = tarif?.toLowerCase() === "gratuit"
-              ? "🎟️ Gratuit"
-              : `🎟️ À partir de ${prix}`;
+            const formatIcon = getFormatIcon(e["⚙️Format"]);
+            const tarifText = e["Tarif"]?.toLowerCase() === "gratuit" ? "🎟️ Gratuit" : `🎟️ À partir de ${e["Billet à partir de"]}`;
 
             container.innerHTML += `
               <div class="card">
-                <a href="${lien}" target="_blank" rel="noopener noreferrer" class="card-link">
-                  <img src="${imageUrl}" alt="Visuel de l'événement" />
+                <a href="${e["📢 Lien vers la page d'inscription"]}" target="_blank" rel="noopener noreferrer" class="card-link">
+                  <img src="${e["Lien Cloudinary"]}" alt="Visuel de l'événement" />
                   <div class="card-content">
-                    <h3>${title}</h3>
-                    <div class="meta">${metaLine}</div>
-                    <div class="meta">📍${ville}</div>
-                    <div class="tarif">${tarifLine}</div>
-                    <div class="orga">🔊 ${orga}</div>
+                    <h3>${e["📝 Titre de l’événement"]}</h3>
+                    <div class="meta"><strong>📅 ${dateLabel} à ${e["🕐 Heure"]}</strong> – ${formatIcon} ${e["⚙️Format"]}</div>
+                    <div class="meta">📍${e["📍 Adresse de l’événement"]}</div>
+                    <div class="tarif">${tarifText}</div>
+                    <div class="orga">🔊 ${e["🎓 Association organisatrice"]}</div>
                   </div>
                 </a>
               </div>`;
           });
         };
 
-        document.getElementById("dateFilter").addEventListener("change", render);
-        document.getElementById("priceFilter").addEventListener("change", render);
-        document.getElementById("searchInput").addEventListener("input", render);
+        document.getElementById("dateFilter").addEventListener("change", (e) => {
+          filters.date = e.target.value;
+          filters.dateLabel = e.target.selectedOptions[0].text;
+          render();
+        });
+        document.getElementById("priceFilter").addEventListener("change", (e) => {
+          filters.price = e.target.value;
+          render();
+        });
+        document.getElementById("searchInput").addEventListener("input", (e) => {
+          filters.search = e.target.value.trim();
+          render();
+        });
 
         render();
       });
