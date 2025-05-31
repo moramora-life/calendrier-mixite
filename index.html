@@ -29,11 +29,11 @@
     .filter-bar select {
       padding: 0.4rem 1rem;
       font-size: 1rem;
-      border-radius: 999px;
+      border-radius: 20px;
       border: 1px solid #ccc;
       color: #000;
+      background-color: #f9f9f9;
       appearance: none;
-      background-color: #fff;
     }
 
     .active-filters {
@@ -46,7 +46,7 @@
 
     .filter-tag {
       background: #f2f2f2;
-      border-radius: 999px;
+      border-radius: 20px;
       padding: 0.3rem 0.8rem;
       font-size: 0.9rem;
       color: #000;
@@ -83,7 +83,6 @@
     .card-link {
       text-decoration: none;
       color: inherit;
-      display: block;
     }
 
     .card-link:hover h3 {
@@ -156,7 +155,19 @@
 
     function csvToArray(str, delimiter = ",") {
       const rows = str.trim().split("\n");
-      return rows.map(row => row.split(delimiter).map(cell => cell.replace(/^"|"$/g, '').trim()));
+      return rows.map(row => {
+        const values = [];
+        let inQuotes = false, value = "";
+        for (let char of row) {
+          if (char === '"') inQuotes = !inQuotes;
+          else if (char === delimiter && !inQuotes) {
+            values.push(value.trim());
+            value = "";
+          } else value += char;
+        }
+        values.push(value.trim());
+        return values;
+      });
     }
 
     function parseFrenchDate(str) {
@@ -168,9 +179,15 @@
       const now = new Date();
       const tomorrow = new Date();
       tomorrow.setDate(now.getDate() + 1);
+
       if (date.toDateString() === now.toDateString()) return "Aujourd’hui";
       if (date.toDateString() === tomorrow.toDateString()) return "Demain";
-      return date.toLocaleDateString("fr-FR", { weekday: 'long', day: 'numeric', month: 'short' }).replace(/^./, m => m.toUpperCase());
+
+      const raw = date.toLocaleDateString("fr-FR", {
+        weekday: 'short', day: 'numeric', month: 'short'
+      });
+
+      return raw.charAt(0).toUpperCase() + raw.slice(1);
     }
 
     function getFormatIcon(format) {
@@ -235,9 +252,15 @@
                 case "today": matchDate = date.toDateString() === today.toDateString(); break;
                 case "tomorrow": const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1); matchDate = date.toDateString() === tomorrow.toDateString(); break;
                 case "week": const end = new Date(); end.setDate(today.getDate() + (7 - today.getDay())); matchDate = date >= today && date <= end; break;
-                case "nextWeek": const startNext = new Date(); startNext.setDate(today.getDate() + (7 - today.getDay()) + 1); const endNext = new Date(); endNext.setDate(startNext.getDate() + 6); matchDate = date >= startNext && date <= endNext; break;
+                case "nextWeek":
+                  const startNext = new Date(); startNext.setDate(today.getDate() + (7 - today.getDay()) + 1);
+                  const endNext = new Date(); endNext.setDate(startNext.getDate() + 6);
+                  matchDate = date >= startNext && date <= endNext; break;
                 case "month": const endM = new Date(today.getFullYear(), today.getMonth() + 1, 0); matchDate = date >= today && date <= endM; break;
-                case "nextMonth": const startNM = new Date(today.getFullYear(), today.getMonth() + 1, 1); const endNM = new Date(today.getFullYear(), today.getMonth() + 2, 0); matchDate = date >= startNM && date <= endNM; break;
+                case "nextMonth":
+                  const startNM = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                  const endNM = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+                  matchDate = date >= startNM && date <= endNM; break;
               }
             }
             const matchPrice = !p || (e["Tarif"] || "").toLowerCase() === p;
@@ -254,8 +277,8 @@
             const formatIcon = getFormatIcon(e["⚙️Format"]);
             const lien = e["📢 Lien vers la page d'inscription"] || "#";
             const tarif = (e["Tarif"] || "").toLowerCase() === "gratuit"
-              ? "🎟️ Gratuit"
-              : `🎟️ À partir de ${e["Billet à partir de"]}`;
+              ? "Gratuit"
+              : `À partir de ${e["Billet à partir de"]}`;
             container.innerHTML += `
               <div class="card">
                 <a href="${lien}" target="_blank" rel="noopener noreferrer" class="card-link">
