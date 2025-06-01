@@ -17,43 +17,50 @@
       position: sticky;
       top: 0;
       z-index: 999;
-      background: white;
+      background: #f7f2f4;
       padding: 0.5rem;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
       justify-content: center;
+      align-items: center;
     }
 
-    .filter-btn {
-      background-color: #8e294f;
-      color: white;
-      border: none;
-      border-radius: 20px;
-      padding: 0.4rem 1rem;
+    .filter-wrapper {
+      position: relative;
+    }
+
+    .filter-bar select {
+      padding: 0.4rem 2rem 0.4rem 0.6rem;
       font-size: 1rem;
+      border-radius: 20px;
+      border: 1px solid #ccc;
+      color: black;
+      appearance: none;
+      background: white url('data:image/svg+xml;utf8,<svg fill="%23333" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat right 0.5rem center/1rem;
       cursor: pointer;
     }
 
-    .filter-tag {
-      background-color: #8e294f;
+    .filter-tag-replace {
+      background: #8e294f;
       color: white;
-      border: none;
       border-radius: 20px;
-      padding: 0.4rem 1rem;
+      padding: 0.4rem 0.8rem;
       font-size: 1rem;
-      display: flex;
+      font-weight: 500;
+      display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
+      cursor: default;
     }
 
-    .filter-tag button {
+    .filter-tag-replace button {
       background: none;
       border: none;
       color: white;
-      font-size: 1rem;
+      font-size: 1.1rem;
       cursor: pointer;
+      padding: 0;
     }
 
     .container {
@@ -125,18 +132,31 @@
 </head>
 <body>
   <div class="filter-bar">
-    <div id="dateFilterWrapper">
-      <button class="filter-btn" onclick="showDateFilter()">Date ▼</button>
+    <div class="filter-wrapper" id="dateWrapper">
+      <select id="dateFilter">
+        <option value="">Date</option>
+        <option value="today">Aujourd’hui</option>
+        <option value="tomorrow">Demain</option>
+        <option value="week">Cette semaine</option>
+        <option value="nextWeek">Semaine suivante</option>
+        <option value="month">Ce mois-ci</option>
+        <option value="nextMonth">Le mois prochain</option>
+      </select>
     </div>
-    <div id="priceFilterWrapper">
-      <button class="filter-btn" onclick="showPriceFilter()">Prix ▼</button>
+    <div class="filter-wrapper" id="priceWrapper">
+      <select id="priceFilter">
+        <option value="">Prix</option>
+        <option value="gratuit">Gratuit</option>
+        <option value="payant">Payant</option>
+      </select>
     </div>
   </div>
 
   <div id="eventContainer" class="container"></div>
 
   <script>
-    const filters = { date: '', price: '' };
+    const filters = { date: "", price: "" };
+    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSX69M9TWwSRdV0OQT8kjW436XQHM8VCTg0BBoDDFIfMYavOSImLzx-XjK4rYnCAy7x-kggRyXUWd-m/pub?gid=1245580470&single=true&output=csv";
 
     function csvToArray(str, delimiter = ",") {
       const rows = str.trim().split("\n");
@@ -184,97 +204,69 @@
       return "";
     }
 
-    function cleanUrl(url) {
-      if (url.startsWith("http")) return url;
-      if (url.startsWith("www.")) return `https://${url}`;
-      return url;
-    }
-
-    function showDateFilter() {
-      const val = prompt("Choisir la date:\ntoday = Aujourd'hui\ntomorrow = Demain\nweek = Cette semaine\nnextWeek = Semaine suivante\nmonth = Ce mois-ci\nnextMonth = Le mois prochain", filters.date);
-      if (!val) return;
-      filters.date = val;
-      renderFilters();
-      render();
-    }
-
-    function showPriceFilter() {
-      const val = prompt("Choisir le tarif:\ngratuit\npayant", filters.price);
-      if (!val) return;
-      filters.price = val;
-      renderFilters();
-      render();
+    function replaceSelectWithTag(type, label) {
+      const wrapper = document.getElementById(`${type}Wrapper`);
+      wrapper.innerHTML = `<div class="filter-tag-replace">${label}<button onclick="removeFilter('${type}')">×</button></div>`;
     }
 
     function removeFilter(type) {
-      filters[type] = '';
-      renderFilters();
+      filters[type] = "";
+      const wrapper = document.getElementById(`${type}Wrapper`);
+      if (type === 'date') wrapper.innerHTML = document.getElementById('dateFilterHTML').innerHTML;
+      else if (type === 'price') wrapper.innerHTML = document.getElementById('priceFilterHTML').innerHTML;
+      document.getElementById(`${type}Filter`).addEventListener("change", handleFilterChange);
       render();
     }
 
-    function renderFilters() {
-      const map = {
-        today: "Aujourd'hui",
-        tomorrow: "Demain",
-        week: "Cette semaine",
-        nextWeek: "Semaine suivante",
-        month: "Ce mois-ci",
-        nextMonth: "Le mois prochain",
-        gratuit: "Gratuit",
-        payant: "Payant"
-      };
-
-      const dateWrapper = document.getElementById("dateFilterWrapper");
-      const priceWrapper = document.getElementById("priceFilterWrapper");
-
-      dateWrapper.innerHTML = filters.date
-        ? `<div class="filter-tag">${map[filters.date] || filters.date}<button onclick=\"removeFilter('date')\">X</button></div>`
-        : `<button class="filter-btn" onclick="showDateFilter()">Date ▼</button>`;
-
-      priceWrapper.innerHTML = filters.price
-        ? `<div class="filter-tag">${map[filters.price] || filters.price}<button onclick=\"removeFilter('price')\">X</button></div>`
-        : `<button class="filter-btn" onclick="showPriceFilter()">Prix ▼</button>`;
+    function handleFilterChange(e) {
+      const type = e.target.id.includes("date") ? "date" : "price";
+      filters[type] = e.target.value;
+      const label = e.target.options[e.target.selectedIndex].textContent;
+      replaceSelectWithTag(type, label);
+      render();
     }
 
-    fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vSX69M9TWwSRdV0OQT8kjW436XQHM8VCTg0BBoDDFIfMYavOSImLzx-XjK4rYnCAy7x-kggRyXUWd-m/pub?gid=1245580470&single=true&output=csv")
+    fetch(sheetUrl)
       .then(res => res.text())
       .then(csv => {
         const data = csvToArray(csv);
         const headers = data[0];
         const rows = data.slice(1);
+        const now = new Date();
         const container = document.getElementById("eventContainer");
 
         const events = rows.map(row => {
           const e = {};
           headers.forEach((h, i) => e[h.trim()] = row[i]?.trim());
-          const date = parseFrenchDate(e["📆 Date de l’événement"] || "");
-          return (e["Publié ?"]?.toLowerCase() === "oui" && !isNaN(date) && date >= new Date()) ? { ...e, eventDate: date } : null;
+          const rawDate = e["📆 Date de l’événement"];
+          const eventDate = rawDate ? parseFrenchDate(rawDate) : null;
+          const published = (e["Publié ?"] || "").toLowerCase();
+          return published === "oui" && eventDate && eventDate >= now ? { ...e, eventDate } : null;
         }).filter(Boolean);
 
         events.sort((a, b) => a.eventDate - b.eventDate);
 
         window.render = () => {
           container.innerHTML = "";
-          const now = new Date();
           const filtered = events.filter(e => {
-            const d = e.eventDate;
-            const today = new Date();
+            const d = filters.date;
+            const p = filters.price;
+            const date = e.eventDate;
             let matchDate = true;
-            switch (filters.date) {
-              case "today": matchDate = d.toDateString() === today.toDateString(); break;
-              case "tomorrow": const t = new Date(); t.setDate(today.getDate() + 1); matchDate = d.toDateString() === t.toDateString(); break;
-              case "week": const end = new Date(); end.setDate(today.getDate() + (7 - today.getDay())); matchDate = d >= today && d <= end; break;
-              case "nextWeek":
-                const sn = new Date(); sn.setDate(today.getDate() + (7 - today.getDay()) + 1);
-                const en = new Date(sn); en.setDate(sn.getDate() + 6);
-                matchDate = d >= sn && d <= en; break;
-              case "month": const em = new Date(today.getFullYear(), today.getMonth() + 1, 0); matchDate = d >= today && d <= em; break;
-              case "nextMonth":
-                const snm = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-                const enm = new Date(today.getFullYear(), today.getMonth() + 2, 0);
-                matchDate = d >= snm && d <= enm; break;
+            if (d) {
+              const today = new Date();
+              switch (d) {
+                case "today": matchDate = date.toDateString() === today.toDateString(); break;
+                case "tomorrow": const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1); matchDate = date.toDateString() === tomorrow.toDateString(); break;
+                case "week": const end = new Date(); end.setDate(today.getDate() + (7 - today.getDay())); matchDate = date >= today && date <= end; break;
+                case "nextWeek":
+                  const startNext = new Date(); startNext.setDate(today.getDate() + (7 - today.getDay()) + 1);
+                  const endNext = new Date(); endNext.setDate(startNext.getDate() + 6);
+                  matchDate = date >= startNext && date <= endNext; break;
+                case "month": const endM = new Date(today.getFullYear(), today.getMonth() + 1, 0); matchDate = date >= today && date <= endM; break;
+              }
             }
-            const matchPrice = !filters.price || (e["Tarif"]?.toLowerCase() === filters.price);
+            const matchPrice = !p || (e["Tarif"] || "").toLowerCase() === p;
             return matchDate && matchPrice;
           });
 
@@ -284,12 +276,14 @@
           }
 
           filtered.forEach(e => {
-            const lien = cleanUrl(e["📢 Lien vers la page d'inscription"] || "#");
             const dateLabel = getDateLabel(e.eventDate);
             const formatIcon = getFormatIcon(e["⚙️Format"]);
+            let lien = e["📢 Lien vers la page d'inscription"]?.trim() || "#";
+            if (lien.startsWith("www.")) lien = "https://" + lien;
+
             const tarif = (e["Tarif"] || "").toLowerCase() === "gratuit"
-              ? "🎟️ Gratuit"
-              : `🎟️ À partir de ${e["Billet à partir de"]}`;
+              ? "Gratuit"
+              : `À partir de ${e["Billet à partir de"]}`;
 
             container.innerHTML += `
               <div class="card">
@@ -297,8 +291,8 @@
                   <img src="${e["Lien Cloudinary"]}" alt="Visuel de l'événement" />
                   <div class="card-content">
                     <h3>${e["📝 Titre de l’événement"]}</h3>
-                    <div class="meta date-time">📅 ${dateLabel} à ${e["🕐 Heure"]} – ${formatIcon} ${e["⚙️Format"]}</div>
-                    <div class="meta">📍${e["📍 Adresse de l’événement"]}</div>
+                    <div class="meta date-time">${dateLabel} à ${e["🕐 Heure"]} – ${formatIcon} ${e["⚙️Format"]}</div>
+                    <div class="meta">${e["📍 Adresse de l’événement"]}</div>
                     <div class="tarif">${tarif}</div>
                     <div class="orga">🔊 ${e["🎓 Association organisatrice"]}</div>
                   </div>
@@ -307,9 +301,30 @@
           });
         };
 
-        renderFilters();
+        document.getElementById("dateFilter").addEventListener("change", handleFilterChange);
+        document.getElementById("priceFilter").addEventListener("change", handleFilterChange);
+
         render();
       });
   </script>
+
+  <!-- Templates cachés -->
+  <template id="dateFilterHTML">
+    <select id="dateFilter">
+      <option value="">Date</option>
+      <option value="today">Aujourd’hui</option>
+      <option value="tomorrow">Demain</option>
+      <option value="week">Cette semaine</option>
+      <option value="nextWeek">Semaine suivante</option>
+      <option value="month">Ce mois-ci</option>
+    </select>
+  </template>
+  <template id="priceFilterHTML">
+    <select id="priceFilter">
+      <option value="">Prix</option>
+      <option value="gratuit">Gratuit</option>
+      <option value="payant">Payant</option>
+    </select>
+  </template>
 </body>
 </html>
